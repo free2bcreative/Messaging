@@ -5,11 +5,21 @@
 
 string errorMessage(string);
 
-Server::Server(int port) {
+Server::Server(int port, bool debug) {
     // setup variables
     port_ = port;
+    debug_ = debug;
     buflen_ = 1024;
     buf_ = new char[buflen_+1];
+
+    if (debug_)
+    {
+        ostringstream debugOS;
+        debugOS << "Port: " << port_ << endl;
+        debugOS << "Debug: " << debug_ << endl;
+        printDebugMessage(debugOS.str());
+
+    }
 
     // create and run the server
     create();
@@ -65,12 +75,20 @@ Server::serve() {
     struct sockaddr_in client_addr;
     socklen_t clientlen = sizeof(client_addr);
 
-    cout << "Server is ready to serve." << endl;
+    if (debug_)
+    {
+        printDebugMessage("Server is ready to serve.");
+    }
+    
 
       // accept clients
     while ((client = accept(server_,(struct sockaddr *)&client_addr,&clientlen)) > 0) {
 
-        cout << "Client has connected.  Starting to handle request" << endl;
+        if (debug_)
+        {
+            printDebugMessage("Client has connected.  Starting to handle request");
+        }
+
         handle(client);
         close(client);
     }
@@ -85,7 +103,10 @@ Server::handle(int client) {
     while (1) {
         // get a request
         string request = get_request(client);
-        cout << "Request: " << request << endl;
+        if (debug_)
+        {
+            printDebugMessage("Request: " + request);
+        }
 
         // break if client is done or an error occurred
         if (request.empty())
@@ -94,7 +115,7 @@ Server::handle(int client) {
         string response = get_response(request);
 
         // send response
-        cout << "Beginning to send_response" << endl;
+        if(debug_) printDebugMessage("Beginning to send_response");
         bool success = send_response(client,response);
         // break if an error occurred
         if (not success)
@@ -135,7 +156,14 @@ Server::send_response(int client, string response) {
     int nwritten;
     // loop to be sure it is all sent
     while (nleft) {
-        cout << "nleft: " << nleft << endl;
+        if (debug_)
+        {
+            ostringstream debugOS;
+            debugOS << "nleft: " << nleft << endl;
+            debugOS << "nwritten: " << nwritten << endl;
+            printDebugMessage(debugOS.str());
+        }
+        
         if ((nwritten = send(client, ptr, nleft, 0)) < 0) {
             if (errno == EINTR) {
                 // the socket call was interrupted -- try again
@@ -151,6 +179,8 @@ Server::send_response(int client, string response) {
         }
         nleft -= nwritten;
         ptr += nwritten;
+
+        
     }
     return true;
 }
@@ -172,29 +202,39 @@ Server::get_response(string request) {
     string token;
 
     while(ss >> token){
-        cout << "Token: " << token << endl;
         v.push_back (token);
+    }
+
+    if (debug_)
+    {
+        ostringstream debugOS;
+        debugOS << "Request from client: \"" << request << "\"" << endl;
+        debugOS << "After chopping up protocol message:" << endl;
+        for (std::vector<string>::iterator i = v.begin(); i != v.end(); ++i)
+        {
+            debugOS << "[" << *i << "]";
+        }
+        printDebugMessage(debugOS.str());
     }
 
     string task = v.at(0);
 
-    if (task == "put")
+    if (task == "put" && v.size() == 4)
     {
         int length = atoi(v.at(3).c_str());
         string message = request.substr(pos);
-        cout << "Length: " << length << "\nMessage: " << message << endl;
         return put(v.at(1), v.at(2), length, message);
     }
-    else if (task == "list")
+    else if (task == "list" && v.size() == 2)
     {
         return list(v.at(1));
     }
-    else if (task == "get")
+    else if (task == "get" && v.size() == 3)
     {
         int index = atoi(v.at(2).c_str()) - 1;
         return get(v.at(1), index);
     }
-    else if (task == "reset")
+    else if (task == "reset" && v.size() == 1)
     {
         return reset();
     }
@@ -207,7 +247,7 @@ Server::get_response(string request) {
 
 string
 Server::put(string name, string subject, int length, string message){
-    cout << "Got into put" << endl;
+    if(debug_) printDebugMessage("Got into put");
     Message m (subject, message, length);
 
     User * user = allUsers.getUser(name);
@@ -218,7 +258,7 @@ Server::put(string name, string subject, int length, string message){
 
 string
 Server::list(string name) {
-    cout << "Got into list" << endl;
+    if(debug_) printDebugMessage("Got into list");
 
     User * user = allUsers.getUser(name);
     return user->getListOfSubjects();
@@ -226,7 +266,7 @@ Server::list(string name) {
 
 string
 Server::get(string name, int index) {
-    cout << "Got into get" << endl;
+    if(debug_) printDebugMessage("Got into get");
 
     User * user = allUsers.getUser(name);
     Message * message = user->getMessage(index);
@@ -237,14 +277,22 @@ Server::get(string name, int index) {
     }
 
     ostringstream os;
-    os << "message " << message->getSubject() << " " << message->getMessageLength() << "\n" << message->getMessage();
+    os << "message " << message->getSubject() << " " << message->getMessageLength() << message->getMessage();
+
+    if (debug_)
+    {
+        ostringstream debugOS;
+        debugOS << "Got message from data structure:" << endl;
+        debugOS << "\"" << os.str() << "\"";
+        printDebugMessage(debugOS.str());
+    }
 
     return os.str();
 }
 
 string
 Server::reset() {
-    cout << "Got into reset" << endl;
+    if(debug_) printDebugMessage("Got into reset");
 
     allUsers.reset();
     return "OK\n";
@@ -253,4 +301,9 @@ Server::reset() {
 string
 errorMessage(string message) {
     return "error " + message + "\n";
+}
+
+void
+Server::printDebugMessage(string message){
+    cout << message << "\n" << endl;
 }

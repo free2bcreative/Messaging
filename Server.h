@@ -19,7 +19,7 @@ using namespace std;
 
 class Server {
 public:
-    Server(int);
+    Server(int, bool);
     ~Server();
 
 private:
@@ -34,8 +34,10 @@ private:
     string list(string);
     string get(string, int);
     string reset();
+    void printDebugMessage(string);
 
     int port_;
+    bool debug_;
     int server_;
     int buflen_;
     char* buf_;

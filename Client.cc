@@ -1,11 +1,21 @@
 #include "Client.h"
 
-Client::Client(string host, int port) {
+Client::Client(string host, int port, bool debug) {
     // setup variables
     host_ = host;
     port_ = port;
+    debug_ = debug;
     buflen_ = 1024;
     buf_ = new char[buflen_+1];
+
+    if (debug_)
+    {
+        ostringstream debugOS; 
+        debugOS << "\tPort: " << port << endl;
+        debugOS << "\tHost: " << host << endl;
+        debugOS << "\tDebug: " << debug << endl;
+        printDebugMessage(debugOS.str());
+    }
 
     // connect to the server and run echo program
     create();
@@ -72,7 +82,14 @@ Client::msg() {
             os << "put " << request.at(1) << " " << request.at(2) << " ";
             os << request.at(3).size() << "\n" << request.at(3);
 
-            //cout << os.str();
+            if (debug_)
+            {
+                ostringstream debugOS;
+                debugOS << "\tUser entered a send request." << endl;
+                debugOS << "\tConverted user request to following protocolMessage:" << endl;
+                debugOS << "\t" << os.str();
+                printDebugMessage(debugOS.str());
+            }
             protocolMessage = os.str();
 
         }
@@ -82,7 +99,15 @@ Client::msg() {
             ostringstream os;
             os << "list " << request.at(1) << "\n";
 
-            //cout << os.str();
+            if (debug_)
+            {
+                ostringstream debugOS;
+                debugOS << "\tUser entered a list request." << endl;
+                debugOS << "\tConverted user request to following protocolMessage:" << endl;
+                debugOS << "\t" << os.str();
+                printDebugMessage(debugOS.str());
+            }
+
             protocolMessage = os.str();
         }
         else if (firstWord == "read" && request.size() == 3)
@@ -94,11 +119,25 @@ Client::msg() {
             os << "get " << request.at(1) << " ";
             os << index << "\n";
 
-            //cout << os.str();
+            if (debug_)
+            {
+                ostringstream debugOS;
+                debugOS << "\tUser entered a read request." << endl;
+                debugOS << "\tConverted user request to following protocolMessage:" << endl;
+                debugOS << "\t" << os.str();
+                printDebugMessage(debugOS.str());
+            }
+
             protocolMessage = os.str();
         }
         else if (firstWord == "quit")
         {
+            if (debug_)
+            {
+                ostringstream debugOS;
+                debugOS << "\tUser entered a quit request." << endl;
+                printDebugMessage(debugOS.str());
+            }
             return;
         }
         else
@@ -232,6 +271,13 @@ Client::get_response() {
 
 string
 Client::handleResponse(string response){
+    if (debug_)
+    {
+        ostringstream debugOS;
+        debugOS << "\tServer sent response back.  Entering handleResponse" << endl;
+        debugOS << "\tResponse from server: " << response << endl;
+        printDebugMessage(debugOS.str());
+    }
     ostringstream os;
 
     //Get first word
@@ -277,9 +323,23 @@ Client::handleResponse(string response){
         is >> subject;
         is >> subject;
 
-        os << subject << response.substr(newLinePos+1);
+        os << subject << "\n" << response.substr(newLinePos+1);
+    }
+
+    if (debug_)
+    {
+        ostringstream debugOS;
+        debugOS << "\tConverted Server response to Client UI" << endl;
+        debugOS << "\tClient UI response: \n\"" << os.str() << "\"" << endl;
+        printDebugMessage(debugOS.str());
     }
 
     return os.str();
 }
 
+void
+Client::printDebugMessage(string message){
+    cout << "------------DEBUG MESSAGE-------------\n";
+    cout << message << endl;
+    cout << "------------END DEBUG-------------\n";
+}

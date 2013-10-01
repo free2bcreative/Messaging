@@ -6,13 +6,35 @@
  */
 
 #include "Server.h"
+#include <iostream>
 
-int main(){
-	Server * server = new Server(3000);
+using namespace std;
 
-	delete server;
+int
+main(int argc, char **argv)
+{
+    // setup default arguments
+    int option;
+    int port = 3000;
+    bool debug = false;
 
-	return 0;
+    // process command line options using getopt()
+    // see "man 3 getopt"
+    while ((option = getopt(argc,argv,"p:d")) != -1) {
+        switch (option) {
+            case 'p':
+                port = atoi(optarg);
+                break;
+            case 'd':
+                debug = true;
+                break;
+            default:
+                cout << "server [-p port]" << endl;
+                exit(EXIT_FAILURE);
+        }
+    }
+
+	Server server(port, debug);
 }
 
 

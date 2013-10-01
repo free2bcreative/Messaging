@@ -18,7 +18,7 @@ using namespace std;
 
 class Client {
 public:
-    Client(string, int);
+    Client(string, int, bool);
     ~Client();
 
 private:
@@ -31,9 +31,11 @@ private:
     bool get_response();
     string getUserMessage();
     string handleResponse(string);
+    void printDebugMessage(string);
 
     int port_;
     string host_;
+    bool debug_;
     int server_;
     int buflen_;
     char* buf_;
