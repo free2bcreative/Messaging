@@ -1,0 +1,5 @@
+This is my Messaging program.  It's a server-client program that allows a client to send a message to another person.  The client can also read messages for any given name.
+
+Full information about this lab is provided on the class website:
+
+http://cs360.byu.edu/fall-2013/labs/messaging-service
