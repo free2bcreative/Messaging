@@ -112,7 +112,7 @@ Server::handle(int client) {
         if (request.empty())
             break;
 
-        string response = get_response(request);
+        string response = get_response(request, client);
 
         // send response
         if(debug_) printDebugMessage("Beginning to send_response");
@@ -145,6 +145,55 @@ Server::get_request(int client) {
     }
     // a better server would cut off anything after the newline and
     // save it in a cache
+    return request;
+}
+
+string
+Server::get_rest_of_request(int messageLength, int currentMessageLength, int client){
+    
+    int nleft = messageLength - currentMessageLength;
+    
+    if (debug_)
+    {
+        ostringstream debugOS;
+        debugOS << "Entering get_rest_of_request:" << endl;
+        debugOS << "messageLength needed: " << messageLength << endl;
+        debugOS << "currentMessageLength: " << currentMessageLength << endl;
+        debugOS << "nleft: " << nleft << endl;
+        printDebugMessage(debugOS.str());
+    }
+
+    string request = "";
+
+    //read until nleft gets to 0
+    while (nleft){
+        int nread = recv(client,buf_,1024,0);
+        if (nread < 0) {
+            if (errno == EINTR)
+                // the socket call was interrupted -- try again
+                continue;
+            else
+                // an error occurred, so break out
+                return "";
+        } else if (nread == 0) {
+            // the socket is closed
+            return "";
+        }
+        // be sure to use append in case we have binary data
+        request.append(buf_,nread);
+
+        nleft -= nread;
+    }
+
+    if (debug_)
+    {
+        ostringstream debugOS;
+        debugOS << "Finished looping to get rest of message:" << endl;
+        debugOS << "Rest of Message: \"" << request << "\"" << endl;
+        debugOS << "Rest of Message length: " << request.size() << endl;
+        printDebugMessage(debugOS.str());
+    }
+
     return request;
 }
 
@@ -186,7 +235,7 @@ Server::send_response(int client, string response) {
 }
 
 string
-Server::get_response(string request) {
+Server::get_response(string request, int client) {
     string invalidRequest = "error Did not recognize the request you made.\n";
 
     if (request.size() == 0)
@@ -222,7 +271,13 @@ Server::get_response(string request) {
     if (task == "put" && v.size() == 4)
     {
         int length = atoi(v.at(3).c_str());
-        string message = request.substr(pos);
+        string message = request.substr(pos + 1);
+
+        if (length != (int)message.size())
+        {
+            message.append(get_rest_of_request(length, message.size(), client));
+        }
+
         return put(v.at(1), v.at(2), length, message);
     }
     else if (task == "list" && v.size() == 2)
@@ -277,7 +332,9 @@ Server::get(string name, int index) {
     }
 
     ostringstream os;
-    os << "message " << message->getSubject() << " " << message->getMessageLength() << message->getMessage();
+    os << "message " << message->getSubject() << " ";
+    os << message->getMessageLength() << "\n";
+    os << message->getMessage();
 
     if (debug_)
     {

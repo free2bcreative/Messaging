@@ -29,6 +29,7 @@ private:
     vector<string> divideResponse(string);
     bool send_request(string);
     bool get_response();
+    string get_rest_of_message(int, int);
     string getUserMessage();
     string handleResponse(string);
     void printDebugMessage(string);

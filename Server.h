@@ -28,8 +28,9 @@ private:
     void serve();
     void handle(int);
     string get_request(int);
+    string get_rest_of_request(int, int, int);
     bool send_response(int, string);
-    string get_response(string);
+    string get_response(string, int);
     string put(string, string, int, string);
     string list(string);
     string get(string, int);

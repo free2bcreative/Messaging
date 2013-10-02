@@ -270,6 +270,54 @@ Client::get_response() {
 }
 
 string
+Client::get_rest_of_message(int messageLength, int currentMessageLength){
+    int nleft = messageLength - currentMessageLength;
+    
+    if (debug_)
+    {
+        ostringstream debugOS;
+        debugOS << "Entering get_rest_of_message:" << endl;
+        debugOS << "messageLength needed: " << messageLength << endl;
+        debugOS << "currentMessageLength: " << currentMessageLength << endl;
+        debugOS << "nleft: " << nleft << endl;
+        printDebugMessage(debugOS.str());
+    }
+
+    string message = "";
+
+    //read until nleft gets to 0
+    while (nleft){
+        int nread = recv(server_,buf_,1024,0);
+        if (nread < 0) {
+            if (errno == EINTR)
+                // the socket call was interrupted -- try again
+                continue;
+            else
+                // an error occurred, so break out
+                return "";
+        } else if (nread == 0) {
+            // the socket is closed
+            return "";
+        }
+        // be sure to use append in case we have binary data
+        message.append(buf_,nread);
+
+        nleft -= nread;
+    }
+
+    if (debug_)
+    {
+        ostringstream debugOS;
+        debugOS << "Finished looping to get rest of message:" << endl;
+        debugOS << "Rest of Message: \"" << message << "\"" << endl;
+        debugOS << "Rest of Message length: " << message.size() << endl;
+        printDebugMessage(debugOS.str());
+    }
+
+    return message;
+}
+
+string
 Client::handleResponse(string response){
     if (debug_)
     {
@@ -322,6 +370,15 @@ Client::handleResponse(string response){
         string subject;
         is >> subject;
         is >> subject;
+
+        //get length (third word)
+        int length;
+        is >> length;
+
+        if (length != (int)response.size())
+        {
+            response.append(get_rest_of_message(length, response.size()));
+        }
 
         os << subject << "\n" << response.substr(newLinePos+1);
     }
