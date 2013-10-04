@@ -375,12 +375,22 @@ Client::handleResponse(string response){
         int length;
         is >> length;
 
-        if (length != (int)response.size())
+        string message = response.substr(newLinePos + 1);
+
+        if (debug_)
         {
-            response.append(get_rest_of_message(length, response.size()));
+            ostringstream debugOS;
+            debugOS << "[message][" << subject << "][" << length << "][";
+            debugOS << message << "]";
+            printDebugMessage(debugOS.str());
         }
 
-        os << subject << "\n" << response.substr(newLinePos+1);
+        if (length != (int)message.size())
+        {
+            message.append(get_rest_of_message(length, message.size()));
+        }
+
+        os << subject << "\n" << message;
     }
 
     if (debug_)
