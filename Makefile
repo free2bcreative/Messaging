@@ -21,7 +21,7 @@ clean:
 	rm -f $(OBJS) $(OBJS:.o=.d)
 
 realclean:
-	rm -f $(OBJS) $(OBJS:.o=.d) client-main server-main
+	rm -f $(OBJS) $(OBJS:.o=.d) msg msgd
 
 
 # These lines ensure that dependencies are handled automatically.

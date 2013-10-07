@@ -89,6 +89,11 @@ Server::serve() {
             printDebugMessage("Client has connected.  Starting to handle request");
         }
 
+        /*
+        This is probably where I add the client to the queue.
+        The worker threads should be checking the queue..maybe,
+        or perhaps have a signal semaphore to alert them.
+        */
         handle(client);
         close(client);
     }
@@ -305,8 +310,10 @@ Server::put(string name, string subject, int length, string message){
     if(debug_) printDebugMessage("Got into put");
     Message m (subject, message, length);
 
+    // This is where I need a sem_wait(&s)
     User * user = allUsers.getUser(name);
     user->addMessage(m);
+    // This is where I need a sem_post(&s)
 
     return "OK\n";
 }
@@ -315,19 +322,25 @@ string
 Server::list(string name) {
     if(debug_) printDebugMessage("Got into list");
 
+    // This is where I need a sem_wait(&s)
     User * user = allUsers.getUser(name);
-    return user->getListOfSubjects();
+    string listOfSubjects = user->getListOfSubjects();
+    // This is where I need a sem_post(&s)
+
+    return listOfSubjects;
 }
 
 string
 Server::get(string name, int index) {
     if(debug_) printDebugMessage("Got into get");
 
+    // This is where I need a sem_wait(&s)
     User * user = allUsers.getUser(name);
     Message * message = user->getMessage(index);
 
     if (message == 0)
     {
+        // This is where I need a sem_post(&s)
         return errorMessage("Message does not exist for " + name);
     }
 
@@ -335,6 +348,7 @@ Server::get(string name, int index) {
     os << "message " << message->getSubject() << " ";
     os << message->getMessageLength() << "\n";
     os << message->getMessage();
+    // This is where I need a sem_post(&s)
 
     if (debug_)
     {
@@ -351,7 +365,9 @@ string
 Server::reset() {
     if(debug_) printDebugMessage("Got into reset");
 
+    // This is where I need a sem_wait(&s)
     allUsers.reset();
+    // This is where I need a sem_post(&s)
     return "OK\n";
 }
 
