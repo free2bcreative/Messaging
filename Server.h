@@ -6,10 +6,13 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <queue>
 
 #include <string>
 #include <vector>
 #include <sstream>
+
+#include <semaphore.h>
 
 #include "AllUsers.h"
 #include "User.h"
@@ -42,5 +45,11 @@ private:
     int server_;
     int buflen_;
     char* buf_;
+
+    queue<int> clientQ_;
+    sem_t buffer_sem; //ensures that we don't have more than BUFFER_SIZE connections
+    sem_t queue_sem; //protects my queue when accessing it by many threads
+    sem_t queue_signal; //signals "listener" threads when I have placed something in queue
+
     AllUsers allUsers;
 };

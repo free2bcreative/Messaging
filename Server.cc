@@ -12,6 +12,28 @@ Server::Server(int port, bool debug) {
     buflen_ = 1024;
     buf_ = new char[buflen_+1];
 
+
+
+    // setup semaphores (for server)
+    sem_init(buffer_sem, 0, 1000); // buffer size 1000
+    sem_init(queue_signal, 0, 0); // signals when I've placed client in Q
+    sem_init(queue_sem, 0, 1); // protects my queue from other accessing
+
+    /*
+    Do I need Worker class?  Probably not.
+    Just need to do the following:
+
+    vector<pthread_t> threads
+    for (# of threads to make){
+        pthread_t temp;
+        threads.push(temp);
+    }
+
+    for (# of threads){
+        pthread_create(threads[i], NULL, &threadTask, void * arg) //may need to pass data structure?
+    }
+    */
+
     if (debug_)
     {
         ostringstream debugOS;
@@ -93,6 +115,13 @@ Server::serve() {
         This is probably where I add the client to the queue.
         The worker threads should be checking the queue..maybe,
         or perhaps have a signal semaphore to alert them.
+        
+        sem_wait(&buffer_sem);
+        sem_wait(&queue_sem);
+        clientQ.push(client);
+        sem_post(&queue_sem);
+        sem_post(queue_signal);
+
         */
         handle(client);
         close(client);
