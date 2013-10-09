@@ -12,12 +12,16 @@ Server::Server(int port, bool debug) {
     buflen_ = 1024;
     buf_ = new char[buflen_+1];
 
+    sem_t buffer_sem; //ensures that we don't have more than BUFFER_SIZE connections
+    sem_t queue_sem; //protects my queue when accessing it by many threads
+    sem_t queue_signal; //signals "listener" threads when I have placed something in queue
+
 
 
     // setup semaphores (for server)
-    sem_init(buffer_sem, 0, 1000); // buffer size 1000
-    sem_init(queue_signal, 0, 0); // signals when I've placed client in Q
-    sem_init(queue_sem, 0, 1); // protects my queue from other accessing
+    sem_init(&buffer_sem, 0, 1000); // buffer size 1000
+    sem_init(&queue_signal, 0, 0); // signals when I've placed client in Q
+    sem_init(&queue_sem, 0, 1); // protects my queue from other accessing
 
     /*
     Do I need Worker class?  Probably not.

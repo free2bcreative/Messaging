@@ -5,7 +5,7 @@ CLIENT=		Client.o client-main.o
 SERVER=		Server.o AllUsers.o User.o Message.o server-main.o
 OBJS =		$(CLIENT) $(SERVER) 
 
-LIBS=
+LIBS=		-pthread
 
 CCFLAGS= -g -Wall
 
