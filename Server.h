@@ -50,6 +50,9 @@ private:
     sem_t buffer_sem; //ensures that we don't have more than BUFFER_SIZE connections
     sem_t queue_sem; //protects my queue when accessing it by many threads
     sem_t queue_signal; //signals "listener" threads when I have placed something in queue
+    sem_t userData_sem; //protects userData (my Data Structure for user data)
+
+    vector<pthread_t> workerThreads;
 
     AllUsers allUsers;
 };

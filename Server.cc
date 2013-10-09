@@ -4,6 +4,13 @@
 
 
 string errorMessage(string);
+void * threadTask(void *vptr);
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// NEED A STRUCT UP HERE CONTAINING ALL SEMAPHORES AND A POINTER TO handle();
+//    This is used to be able to pass all of them to the C function called
+//     threadTask();
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Server::Server(int port, bool debug) {
     // setup variables
@@ -15,13 +22,31 @@ Server::Server(int port, bool debug) {
     sem_t buffer_sem; //ensures that we don't have more than BUFFER_SIZE connections
     sem_t queue_sem; //protects my queue when accessing it by many threads
     sem_t queue_signal; //signals "listener" threads when I have placed something in queue
-
+    sem_t userData_sem; //protects userData (my Data Structure for user data)
 
 
     // setup semaphores (for server)
     sem_init(&buffer_sem, 0, 1000); // buffer size 1000
     sem_init(&queue_signal, 0, 0); // signals when I've placed client in Q
     sem_init(&queue_sem, 0, 1); // protects my queue from other accessing
+    sem_init(&userData_sem, 0, 1);
+
+    // setup client queue
+    queue<int> clientQ_;
+
+    // create thread pool of 10 threads
+    vector<pthread_t> workerThreads;
+    for (int i = 0; i < 10; ++i)
+    {
+        workerThreads.push_back(pthread_t());
+    }
+
+    for (std::vector<pthread_t>::iterator i = workerThreads.begin(); i != workerThreads.end(); ++i)
+    {
+        // may have issues with *i.  Must be a pointer to the pthread_t.
+        pthread_create((*i), NULL, &threadTask, &clientQ_);
+    }
+
 
     /*
     Do I need Worker class?  Probably not.
@@ -54,6 +79,28 @@ Server::Server(int port, bool debug) {
 
 Server::~Server() {
     delete buf_;
+}
+
+void *
+threadTask(void *vptr){
+
+    queue<int> * clientQ;
+
+    while(true){
+        sem_wait(&queue_signal);
+        sem_wait(&queue_sem);
+        int client = clientQ->front();
+        clientQ->pop();
+        sem_post(&queue_sem);
+
+        handle(client);
+        close(client);
+        sem_post(&buffer_sem);
+    }
+
+    delete clientQ;
+
+    return NULL;
 }
 
 void
@@ -127,8 +174,12 @@ Server::serve() {
         sem_post(queue_signal);
 
         */
-        handle(client);
-        close(client);
+        sem_wait(&buffer_sem);
+        sem_wait(&queue_sem);
+        clientQ_.push(client);
+        sem_post(&queue_sem);
+        sem_post(&queue_signal);
+
     }
 
     close(server_);
@@ -344,9 +395,11 @@ Server::put(string name, string subject, int length, string message){
     Message m (subject, message, length);
 
     // This is where I need a sem_wait(&s)
+    sem_wait(&userData_sem);
     User * user = allUsers.getUser(name);
     user->addMessage(m);
     // This is where I need a sem_post(&s)
+    sem_post(&userData_sem);
 
     return "OK\n";
 }
@@ -356,9 +409,11 @@ Server::list(string name) {
     if(debug_) printDebugMessage("Got into list");
 
     // This is where I need a sem_wait(&s)
+    sem_wait(&userData_sem);
     User * user = allUsers.getUser(name);
     string listOfSubjects = user->getListOfSubjects();
     // This is where I need a sem_post(&s)
+    sem_post(&userData_sem);
 
     return listOfSubjects;
 }
@@ -368,12 +423,14 @@ Server::get(string name, int index) {
     if(debug_) printDebugMessage("Got into get");
 
     // This is where I need a sem_wait(&s)
+    sem_wait(&userData_sem);
     User * user = allUsers.getUser(name);
     Message * message = user->getMessage(index);
 
     if (message == 0)
     {
         // This is where I need a sem_post(&s)
+        sem_post(&userData_sem);
         return errorMessage("Message does not exist for " + name);
     }
 
@@ -382,6 +439,7 @@ Server::get(string name, int index) {
     os << message->getMessageLength() << "\n";
     os << message->getMessage();
     // This is where I need a sem_post(&s)
+    sem_post(&userData_sem);
 
     if (debug_)
     {
@@ -399,8 +457,10 @@ Server::reset() {
     if(debug_) printDebugMessage("Got into reset");
 
     // This is where I need a sem_wait(&s)
+    sem_wait(&userData_sem);
     allUsers.reset();
     // This is where I need a sem_post(&s)
+    sem_post(&userData_sem);
     return "OK\n";
 }
 
