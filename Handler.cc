@@ -1,196 +1,19 @@
-#include "Server.h"
-#include <iostream>
-#include <stdlib.h>
+#include "Handler.h"
 
-
-string errorMessage(string);
-void * threadTask(void *vptr);
-
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// NEED A STRUCT UP HERE CONTAINING ALL SEMAPHORES AND A POINTER TO handle()
-//  AND A POINTER TO THE QUEUE!!!
-//    This is used to be able to pass all of them to the C function called
-//     threadTask();
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-
-Server::Server(int port, bool debug) {
-    // setup variables
-    port_ = port;
-    debug_ = debug;
-    buflen_ = 1024;
-    buf_ = new char[buflen_+1];
-
-    sem_t buffer_sem; //ensures that we don't have more than BUFFER_SIZE connections
-    sem_t queue_sem; //protects my queue when accessing it by many threads
-    sem_t queue_signal; //signals "listener" threads when I have placed something in queue
-    sem_t userData_sem; //protects userData (my Data Structure for user data)
-
-
-    // setup semaphores (for server)
-    sem_init(&buffer_sem, 0, 1000); // buffer size 1000
-    sem_init(&queue_signal, 0, 0); // signals when I've placed client in Q
-    sem_init(&queue_sem, 0, 1); // protects my queue from other accessing
-    sem_init(&userData_sem, 0, 1);
-
-    // setup client queue
-    queue<int> clientQ_;
-
-    // create thread pool of 10 threads
-    vector<pthread_t> workerThreads;
-    for (int i = 0; i < 10; ++i)
-    {
-        workerThreads.push_back(pthread_t());
-    }
-
-    for (std::vector<pthread_t>::iterator i = workerThreads.begin(); i != workerThreads.end(); ++i)
-    {
-        // may have issues with *i.  Must be a pointer to the pthread_t.
-        pthread_create((*i), NULL, &threadTask, &clientQ_);
-    }
-
-
-    /*
-    Do I need Worker class?  Probably not.
-    Just need to do the following:
-
-    vector<pthread_t> threads
-    for (# of threads to make){
-        pthread_t temp;
-        threads.push(temp);
-    }
-
-    for (# of threads){
-        pthread_create(threads[i], NULL, &threadTask, void * arg) //may need to pass data structure?
-    }
-    */
-
-    if (debug_)
-    {
-        ostringstream debugOS;
-        debugOS << "Port: " << port_ << endl;
-        debugOS << "Debug: " << debug_ << endl;
-        printDebugMessage(debugOS.str());
-
-    }
-
-    // create and run the server
-    create();
-    serve();
+Handler::Handler(int client, AllUsers * allUsers){
+	allUsers_ = allUsers;
+	client_ = client;
+	userData_sem_ = allUsers->getAllUsersSemaphore();
+	handle(client);
 }
 
-Server::~Server() {
-    delete buf_;
-}
-
-void *
-threadTask(void *vptr){
-
-    queue<int> * clientQ;
-
-    while(true){
-        sem_wait(&queue_signal);
-        sem_wait(&queue_sem);
-        int client = clientQ->front();
-        clientQ->pop();
-        sem_post(&queue_sem);
-
-        handle(client);
-        close(client);
-        sem_post(&buffer_sem);
-    }
-
-    delete clientQ;
-
-    return NULL;
+Handler::~Handler(){
+	delete allUsers_;
+	delete userData_sem_;
 }
 
 void
-Server::create() {
-    struct sockaddr_in server_addr;
-
-    // setup socket address structure
-    memset(&server_addr,0,sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port_);
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-
-    // create socket
-    server_ = socket(PF_INET,SOCK_STREAM,0);
-    if (!server_) {
-        perror("socket");
-        exit(-1);
-    }
-
-    // set socket to immediately reuse port when the application closes
-    int reuse = 1;
-    if (setsockopt(server_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-        perror("setsockopt");
-        exit(-1);
-    }
-
-    // call bind to associate the socket with our local address and
-    // port
-    if (bind(server_,(const struct sockaddr *)&server_addr,sizeof(server_addr)) < 0) {
-        perror("bind");
-        exit(-1);
-    }
-
-      // convert the socket to listen for incoming connections
-    if (listen(server_,SOMAXCONN) < 0) {
-        perror("listen");
-        exit(-1);
-    }
-}
-
-void
-Server::serve() {
-    // setup client
-    int client;
-    struct sockaddr_in client_addr;
-    socklen_t clientlen = sizeof(client_addr);
-
-    if (debug_)
-    {
-        printDebugMessage("Server is ready to serve.");
-    }
-    
-
-      // accept clients
-    while ((client = accept(server_,(struct sockaddr *)&client_addr,&clientlen)) > 0) {
-
-        if (debug_)
-        {
-            printDebugMessage("Client has connected.  Starting to handle request");
-        }
-
-        /*
-        This is probably where I add the client to the queue.
-        The worker threads should be checking the queue..maybe,
-        or perhaps have a signal semaphore to alert them.
-        
-        sem_wait(&buffer_sem);
-        sem_wait(&queue_sem);
-        clientQ.push(client);
-        sem_post(&queue_sem);
-        sem_post(queue_signal);
-
-        */
-        sem_wait(&buffer_sem);
-        sem_wait(&queue_sem);
-        clientQ_.push(client);
-        sem_post(&queue_sem);
-        sem_post(&queue_signal);
-
-    }
-
-    close(server_);
-
-}
-
-void
-Server::handle(int client) {
+Handler::handle(int client) {
     // loop to handle all requests
     while (1) {
         // get a request
@@ -216,7 +39,7 @@ Server::handle(int client) {
 }
 
 string
-Server::get_request(int client) {
+Handler::get_request(int client) {
     string request = "";
     // read until we get a newline
     while (request.find("\n") == string::npos) {
@@ -241,7 +64,7 @@ Server::get_request(int client) {
 }
 
 string
-Server::get_rest_of_request(int messageLength, int currentMessageLength, int client){
+Handler::get_rest_of_request(int messageLength, int currentMessageLength, int client){
     
     int nleft = messageLength - currentMessageLength;
     
@@ -290,7 +113,7 @@ Server::get_rest_of_request(int messageLength, int currentMessageLength, int cli
 }
 
 bool
-Server::send_response(int client, string response) {
+Handler::send_response(int client, string response) {
     // prepare to send response
     const char* ptr = response.c_str();
     int nleft = response.length();
@@ -327,7 +150,7 @@ Server::send_response(int client, string response) {
 }
 
 string
-Server::get_response(string request, int client) {
+Handler::get_response(string request, int client) {
     string invalidRequest = "error Did not recognize the request you made.\n";
 
     if (request.size() == 0)
@@ -393,47 +216,47 @@ Server::get_response(string request, int client) {
 }
 
 string
-Server::put(string name, string subject, int length, string message){
+Handler::put(string name, string subject, int length, string message){
     if(debug_) printDebugMessage("Got into put");
     Message m (subject, message, length);
 
     // This is where I need a sem_wait(&s)
-    sem_wait(&userData_sem);
-    User * user = allUsers.getUser(name);
+    sem_wait(userData_sem_);
+    User * user = allUsers->getUser(name);
     user->addMessage(m);
     // This is where I need a sem_post(&s)
-    sem_post(&userData_sem);
+    sem_post(userData_sem_);
 
     return "OK\n";
 }
 
 string
-Server::list(string name) {
+Handler::list(string name) {
     if(debug_) printDebugMessage("Got into list");
 
     // This is where I need a sem_wait(&s)
-    sem_wait(&userData_sem);
-    User * user = allUsers.getUser(name);
+    sem_wait(userData_sem_);
+    User * user = allUsers->getUser(name);
     string listOfSubjects = user->getListOfSubjects();
     // This is where I need a sem_post(&s)
-    sem_post(&userData_sem);
+    sem_post(userData_sem_);
 
     return listOfSubjects;
 }
 
 string
-Server::get(string name, int index) {
+Handler::get(string name, int index) {
     if(debug_) printDebugMessage("Got into get");
 
     // This is where I need a sem_wait(&s)
-    sem_wait(&userData_sem);
-    User * user = allUsers.getUser(name);
+    sem_wait(userData_sem_);
+    User * user = allUsers->getUser(name);
     Message * message = user->getMessage(index);
 
     if (message == 0)
     {
         // This is where I need a sem_post(&s)
-        sem_post(&userData_sem);
+        sem_post(userData_sem_);
         return errorMessage("Message does not exist for " + name);
     }
 
@@ -442,7 +265,7 @@ Server::get(string name, int index) {
     os << message->getMessageLength() << "\n";
     os << message->getMessage();
     // This is where I need a sem_post(&s)
-    sem_post(&userData_sem);
+    sem_post(userData_sem_);
 
     if (debug_)
     {
@@ -456,23 +279,18 @@ Server::get(string name, int index) {
 }
 
 string
-Server::reset() {
+Handler::reset() {
     if(debug_) printDebugMessage("Got into reset");
 
     // This is where I need a sem_wait(&s)
-    sem_wait(&userData_sem);
-    allUsers.reset();
+    sem_wait(userData_sem_);
+    allUsers->reset();
     // This is where I need a sem_post(&s)
-    sem_post(&userData_sem);
+    sem_post(userData_sem_);
     return "OK\n";
 }
 
 string
 errorMessage(string message) {
     return "error " + message + "\n";
-}
-
-void
-Server::printDebugMessage(string message){
-    cout << message << "\n" << endl;
 }

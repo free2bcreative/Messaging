@@ -12,12 +12,16 @@ using namespace std;
 
 
 AllUsers::AllUsers() {
-	// TODO Auto-generated constructor stub
-
+	sem_t allUsers_sem_;
+	sem_init(&allUsers_sem, 0, 1);
 }
 
 AllUsers::~AllUsers() {
 	// TODO Auto-generated destructor stub
+}
+
+sem_t * AllUsers::getAllUsersSemaphore(){
+	return &allUsers_sem;
 }
 
 User * AllUsers::createUser(string name){
