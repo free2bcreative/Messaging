@@ -2,7 +2,7 @@
 
 CXX=		g++ $(CCFLAGS)
 CLIENT=		Client.o client-main.o
-SERVER=		Server.o AllUsers.o User.o Message.o server-main.o
+SERVER=		Server.o AllUsers.o User.o Message.o server-main.o Handler.o
 OBJS =		$(CLIENT) $(SERVER) 
 
 LIBS=		-pthread

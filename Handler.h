@@ -1,6 +1,6 @@
 #include <string>
 #include <iostream>
-#include <semaphone.h>
+#include <semaphore.h>
 #include "AllUsers.h"
 
 using namespace std;
@@ -8,7 +8,7 @@ using namespace std;
 
 class Handler{
 public:
-	Handler(int, AllUsers *);
+	Handler(int, AllUsers *, bool);
 	~Handler();
 
 private:
@@ -26,6 +26,8 @@ private:
     int server_;
     int buflen_;
     char* buf_;
+
+    bool debug_;
 
     AllUsers * allUsers_;
     int client_;

@@ -1,15 +1,35 @@
 #include "Handler.h"
+#include <stdlib.h>
+#include <errno.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sstream>
 
-Handler::Handler(int client, AllUsers * allUsers){
+void printDebugMessage(string);
+string errorMessage(string message);
+
+Handler::Handler(int client, AllUsers * allUsers, bool debug){
+    debug_ = debug;
+
+    buflen_ = 1024;
+    buf_ = new char[buflen_+1];
+
 	allUsers_ = allUsers;
 	client_ = client;
 	userData_sem_ = allUsers->getAllUsersSemaphore();
+
+    if (debug_) 
+    {
+        ostringstream debugOS;
+        debugOS << "In Handler constructor...about to handle(client)\n";
+        printDebugMessage(debugOS.str());
+    }
+
 	handle(client);
 }
 
 Handler::~Handler(){
-	delete allUsers_;
-	delete userData_sem_;
 }
 
 void
@@ -20,7 +40,7 @@ Handler::handle(int client) {
         string request = get_request(client);
         if (debug_)
         {
-            printDebugMessage("Request: " + request);
+            printDebugMessage("Request: \"" + request + "\"");
         }
 
         // break if client is done or an error occurred
@@ -36,6 +56,8 @@ Handler::handle(int client) {
         if (not success)
             break;
     }
+
+    cout << "End of Handler::handle" << endl;
 }
 
 string
@@ -45,14 +67,19 @@ Handler::get_request(int client) {
     while (request.find("\n") == string::npos) {
         int nread = recv(client,buf_,1024,0);
         if (nread < 0) {
-            if (errno == EINTR)
+            if (errno == EINTR){
                 // the socket call was interrupted -- try again
+                cout << "The socket call was interrupted -- try again" << endl;
                 continue;
-            else
+            }
+            else{
                 // an error occurred, so break out
+                cout << "an error occurred, so break out" << endl;
                 return "";
+            }
         } else if (nread == 0) {
             // the socket is closed
+            cout << "the socket is closed" << endl;
             return "";
         }
         // be sure to use append in case we have binary data
@@ -222,7 +249,7 @@ Handler::put(string name, string subject, int length, string message){
 
     // This is where I need a sem_wait(&s)
     sem_wait(userData_sem_);
-    User * user = allUsers->getUser(name);
+    User * user = allUsers_->getUser(name);
     user->addMessage(m);
     // This is where I need a sem_post(&s)
     sem_post(userData_sem_);
@@ -236,7 +263,7 @@ Handler::list(string name) {
 
     // This is where I need a sem_wait(&s)
     sem_wait(userData_sem_);
-    User * user = allUsers->getUser(name);
+    User * user = allUsers_->getUser(name);
     string listOfSubjects = user->getListOfSubjects();
     // This is where I need a sem_post(&s)
     sem_post(userData_sem_);
@@ -250,7 +277,7 @@ Handler::get(string name, int index) {
 
     // This is where I need a sem_wait(&s)
     sem_wait(userData_sem_);
-    User * user = allUsers->getUser(name);
+    User * user = allUsers_->getUser(name);
     Message * message = user->getMessage(index);
 
     if (message == 0)
@@ -284,7 +311,7 @@ Handler::reset() {
 
     // This is where I need a sem_wait(&s)
     sem_wait(userData_sem_);
-    allUsers->reset();
+    allUsers_->reset();
     // This is where I need a sem_post(&s)
     sem_post(userData_sem_);
     return "OK\n";
@@ -293,4 +320,9 @@ Handler::reset() {
 string
 errorMessage(string message) {
     return "error " + message + "\n";
+}
+
+void
+printDebugMessage(string message){
+    cout << message << "\n" << endl;
 }

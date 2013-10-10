@@ -20,10 +20,23 @@
 
 using namespace std;
 
+struct ClientStorage{
+    sem_t buffer_sem; //ensures that we don't have more than BUFFER_SIZE connections
+    sem_t queue_sem; //protects my queue when accessing it by many threads
+    sem_t queue_signal; //signals "listener" threads when I have placed something in queue
+
+    queue<int> clientQ;
+};
+
 class Server {
 public:
     Server(int, bool);
     ~Server();
+
+    AllUsers * getAllUsers();
+    struct ClientStorage * getClientStorage();
+    bool debug();
+    void printDebugMessage(string);
 
 private:
 
@@ -38,7 +51,7 @@ private:
     string list(string);
     string get(string, int);
     string reset();
-    void printDebugMessage(string);
+    
 
     int port_;
     bool debug_;
@@ -46,13 +59,8 @@ private:
     int buflen_;
     char* buf_;
 
-    queue<int> clientQ_;
-    sem_t buffer_sem; //ensures that we don't have more than BUFFER_SIZE connections
-    sem_t queue_sem; //protects my queue when accessing it by many threads
-    sem_t queue_signal; //signals "listener" threads when I have placed something in queue
-    sem_t userData_sem; //protects userData (my Data Structure for user data)
-
     vector<pthread_t> workerThreads;
+    struct ClientStorage clientstorage;
 
     AllUsers allUsers;
 };

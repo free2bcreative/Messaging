@@ -1,9 +1,10 @@
 #include "Server.h"
 #include <iostream>
 #include <stdlib.h>
+#include "Handler.h"
 
 
-string errorMessage(string);
+//string errorMessage(string);
 void * threadTask(void *vptr);
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -15,6 +16,8 @@ void * threadTask(void *vptr);
 
 
 
+
+
 Server::Server(int port, bool debug) {
     // setup variables
     port_ = port;
@@ -22,20 +25,14 @@ Server::Server(int port, bool debug) {
     buflen_ = 1024;
     buf_ = new char[buflen_+1];
 
-    sem_t buffer_sem; //ensures that we don't have more than BUFFER_SIZE connections
-    sem_t queue_sem; //protects my queue when accessing it by many threads
-    sem_t queue_signal; //signals "listener" threads when I have placed something in queue
-    sem_t userData_sem; //protects userData (my Data Structure for user data)
-
+    
 
     // setup semaphores (for server)
-    sem_init(&buffer_sem, 0, 1000); // buffer size 1000
-    sem_init(&queue_signal, 0, 0); // signals when I've placed client in Q
-    sem_init(&queue_sem, 0, 1); // protects my queue from other accessing
-    sem_init(&userData_sem, 0, 1);
+    sem_init(&clientstorage.buffer_sem, 0, 1000); // buffer size 1000
+    sem_init(&clientstorage.queue_signal, 0, 0); // signals when I've placed client in Q
+    sem_init(&clientstorage.queue_sem, 0, 1); // protects my queue from other accessing
+    
 
-    // setup client queue
-    queue<int> clientQ_;
 
     // create thread pool of 10 threads
     vector<pthread_t> workerThreads;
@@ -47,7 +44,7 @@ Server::Server(int port, bool debug) {
     for (std::vector<pthread_t>::iterator i = workerThreads.begin(); i != workerThreads.end(); ++i)
     {
         // may have issues with *i.  Must be a pointer to the pthread_t.
-        pthread_create((*i), NULL, &threadTask, &clientQ_);
+        pthread_create(&(*i), NULL, &threadTask, this);
     }
 
 
@@ -87,21 +84,34 @@ Server::~Server() {
 void *
 threadTask(void *vptr){
 
-    queue<int> * clientQ;
+    Server * server = (Server*)vptr;
+
+    ClientStorage * clientstorage = server->getClientStorage();
+
+    queue<int> * clientQ = &clientstorage->clientQ;
+
 
     while(true){
-        sem_wait(&queue_signal);
-        sem_wait(&queue_sem);
+        if (server->debug()) server->printDebugMessage("In threadTask...waiting for sem_signal");
+        sem_wait(&clientstorage->queue_signal);
+        if (server->debug()) server->printDebugMessage("Got signal. Waiting for queue_sem");
+        sem_wait(&clientstorage->queue_sem);
+
+        if (server->debug()) server->printDebugMessage("Got into queue_sem. Pulling client off of queue");
+
         int client = clientQ->front();
         clientQ->pop();
-        sem_post(&queue_sem);
+        sem_post(&clientstorage->queue_sem);
 
-        handle(client);
+        Handler handler(client, server->getAllUsers(), server->debug());
+
         close(client);
-        sem_post(&buffer_sem);
+        sem_post(&clientstorage->buffer_sem);
     }
 
     delete clientQ;
+    delete clientstorage;
+    delete server;
 
     return NULL;
 }
@@ -177,11 +187,11 @@ Server::serve() {
         sem_post(queue_signal);
 
         */
-        sem_wait(&buffer_sem);
-        sem_wait(&queue_sem);
-        clientQ_.push(client);
-        sem_post(&queue_sem);
-        sem_post(&queue_signal);
+        sem_wait(&clientstorage.buffer_sem);
+        sem_wait(&clientstorage.queue_sem);
+        clientstorage.clientQ.push(client);
+        sem_post(&clientstorage.queue_sem);
+        sem_post(&clientstorage.queue_signal);
 
     }
 
@@ -189,6 +199,19 @@ Server::serve() {
 
 }
 
+AllUsers * Server::getAllUsers(){
+    return &allUsers;
+}
+
+struct ClientStorage * Server::getClientStorage(){
+    return &clientstorage;
+}
+
+bool Server::debug(){
+    return debug_;
+}
+
+/*
 void
 Server::handle(int client) {
     // loop to handle all requests
@@ -472,6 +495,7 @@ errorMessage(string message) {
     return "error " + message + "\n";
 }
 
+*/
 void
 Server::printDebugMessage(string message){
     cout << message << "\n" << endl;
