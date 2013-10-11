@@ -91,15 +91,12 @@ threadTask(void *vptr){
 
 
     while(true){
-        if (server->debug()) server->printDebugMessage("In threadTask...waiting for sem_signal");
         sem_wait(&clientstorage->queue_signal);
-        if (server->debug()) server->printDebugMessage("Got signal. Waiting for queue_sem");
         sem_wait(&clientstorage->queue_sem);
-
-        if (server->debug()) server->printDebugMessage("Got into queue_sem. Pulling client off of queue");
 
         int client = clientQ->front();
         clientQ->pop();
+        
         sem_post(&clientstorage->queue_sem);
 
         Handler handler(client, server->getAllUsers(), server->debug());
