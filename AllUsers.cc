@@ -12,8 +12,8 @@ using namespace std;
 
 
 AllUsers::AllUsers() {
-	sem_t allUsers_sem_;
 	sem_init(&allUsers_sem_, 0, 1);
+
 }
 
 AllUsers::~AllUsers() {

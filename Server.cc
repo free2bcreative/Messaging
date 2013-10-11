@@ -31,7 +31,6 @@ Server::Server(int port, bool debug) {
     sem_init(&clientstorage.buffer_sem, 0, 1000); // buffer size 1000
     sem_init(&clientstorage.queue_signal, 0, 0); // signals when I've placed client in Q
     sem_init(&clientstorage.queue_sem, 0, 1); // protects my queue from other accessing
-    
 
 
     // create thread pool of 10 threads

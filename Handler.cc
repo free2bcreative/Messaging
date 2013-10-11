@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sstream>
+#include <iostream>
 
 void printDebugMessage(string);
 string errorMessage(string message);
@@ -57,7 +58,6 @@ Handler::handle(int client) {
             break;
     }
 
-    cout << "End of Handler::handle" << endl;
 }
 
 string
@@ -69,17 +69,14 @@ Handler::get_request(int client) {
         if (nread < 0) {
             if (errno == EINTR){
                 // the socket call was interrupted -- try again
-                cout << "The socket call was interrupted -- try again" << endl;
                 continue;
             }
             else{
                 // an error occurred, so break out
-                cout << "an error occurred, so break out" << endl;
                 return "";
             }
         } else if (nread == 0) {
             // the socket is closed
-            cout << "the socket is closed" << endl;
             return "";
         }
         // be sure to use append in case we have binary data
@@ -249,11 +246,14 @@ Handler::put(string name, string subject, int length, string message){
 
     // This is where I need a sem_wait(&s)
     sem_wait(userData_sem_);
+
     User * user = allUsers_->getUser(name);
     user->addMessage(m);
+
     // This is where I need a sem_post(&s)
     sem_post(userData_sem_);
 
+    
     return "OK\n";
 }
 
@@ -263,11 +263,14 @@ Handler::list(string name) {
 
     // This is where I need a sem_wait(&s)
     sem_wait(userData_sem_);
+
     User * user = allUsers_->getUser(name);
     string listOfSubjects = user->getListOfSubjects();
+
     // This is where I need a sem_post(&s)
     sem_post(userData_sem_);
 
+    
     return listOfSubjects;
 }
 
@@ -277,6 +280,7 @@ Handler::get(string name, int index) {
 
     // This is where I need a sem_wait(&s)
     sem_wait(userData_sem_);
+
     User * user = allUsers_->getUser(name);
     Message * message = user->getMessage(index);
 
@@ -302,6 +306,7 @@ Handler::get(string name, int index) {
         printDebugMessage(debugOS.str());
     }
 
+    
     return os.str();
 }
 
@@ -314,6 +319,8 @@ Handler::reset() {
     allUsers_->reset();
     // This is where I need a sem_post(&s)
     sem_post(userData_sem_);
+
+
     return "OK\n";
 }
 
